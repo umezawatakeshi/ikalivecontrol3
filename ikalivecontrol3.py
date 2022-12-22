@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import argparse
 from time import sleep
+import yaml
 
 RULES = ["nawabari", "area", "yagura", "hoko", "asari"]
 # ステージリストは さんぽ や プラベ のステージ選択画面と同じ並びにしてある
@@ -33,7 +34,6 @@ PHASE_GAME = 3       # 試合の開始を検出した後の状態
                      #   - 「メンバーの合流を待っています」を検出したら PHASE_WAIT_JOIN へ
                      #       - 試合結果を検出する前に「メンバーの合流を待っています」を検出したら無効試合扱い
 current_phase = PHASE_WAIT_JOIN
-games = []
 
 # 画像のテンプレートマッチングを行うクラス
 # 640x360 にリサイズして指定した閾値で白黒二値化した状態で、指定した範囲についてマッチングを行う
@@ -131,6 +131,7 @@ for s in STAGES:
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--video-file', dest='video_file_name', help='specify input video file')
 argparser.add_argument('--video-capture', dest='video_capture_id', type=int, help='specify input video capture device id')
+argparser.add_argument('--progress-file', dest='progress_file_name', help='specify progress file')
 argparser.add_argument('--test-matchers', dest='test_matchers', action='store_true', help='test matchers')
 argparser.add_argument('--decimate-frames', dest='decimate_frames', action='store_true', help='decimate frames to decrease cpu load')
 argparser.add_argument('--matcher-threshold', dest='matcher_threshold', type=float, default=2.0, help='template matching threshold')
@@ -149,6 +150,28 @@ print("frame rate = {:5.2f}fps".format(fps))
 if args.decimate_frames and fps > 15.0:
 	frame_interval =  int(fps / 12.5) # 29.97fps 系や 25fps 系だった場合に備えて 15 ではなく 12.5 で割る
 	print("check every {} frames".format(frame_interval))
+
+if args.progress_file_name is None:
+	progress = {}
+else:
+	with open(args.progress_file_name) as file:
+		progress = yaml.safe_load(file)
+if not "teams" in progress or not isinstance(progress["teams"], dict):
+	progress["teams"] = {}
+teams = progress["teams"]
+if not "alpha" in teams or not isinstance(teams["alpha"], str):
+	teams["alpha"] = ""
+if not "bravo" in teams or not isinstance(teams["bravo"], str):
+	teams["bravo"] = ""
+if not "games" in progress or not isinstance(progress["games"], list):
+	progress["games"] = []
+games = progress["games"]
+
+def write_progress():
+	if not args.progress_file_name is None:
+		with open(args.progress_file_name, "w") as file:
+			yaml.dump(progress, file)
+	#print(yaml.dump(progress))
 
 outframe = np.zeros((1080, 1920, 3), np.uint8) # RGB24, 1920x1080, 真っ黒
 img = {}
@@ -174,6 +197,7 @@ while True:
 			current_phase = PHASE_WAIT_READY
 			current_game = {}
 			games.append(current_game)
+			write_progress()
 
 	elif current_phase == PHASE_WAIT_READY or current_phase == PHASE_OPENING:
 		if current_phase == PHASE_WAIT_READY:
@@ -191,12 +215,14 @@ while True:
 				if Matcher.list_match(stage_matchers[s], img):
 					print("detected stage {}".format(s))
 					current_game["stage"] = s
+					write_progress()
 					break
 		if not "rule" in current_game:
 			for r in RULES:
 				if Matcher.list_match(rule_matchers[r], img):
 					print("detected rule {}".format(r))
 					current_game["rule"] = r
+					write_progress()
 					break
 
 	elif current_phase == PHASE_GAME:
@@ -205,6 +231,7 @@ while True:
 				if result_matchers[i].match(img):
 					print("detected result {}".format(i))
 					current_game["result"] = i
+					write_progress()
 					break
 
 	else:
@@ -218,7 +245,7 @@ while True:
 			# ロビーに戻ってきたのに結果が検出されていない場合は無効試合扱いにしておく
 			if not "result" in current_game:
 				current_game["result"] = "nogame"
-			print(games)
+				write_progress()
 
 
 	# 出力バッファに貼り付け
