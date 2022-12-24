@@ -127,6 +127,22 @@ for s in STAGES:
 	for t in [Matcher.WHITE, Matcher.BLACK]:
 		stage_matchers[s].append(Matcher("templates/opening_stage_{0}.png".format(s), 327, 505, 347, 627, t))
 
+rule_images = {}
+for r in RULES:
+	rule_images[r] = cv2.imread("images/rule_{0}.png".format(r), cv2.IMREAD_UNCHANGED)
+
+stage_images = {}
+for s in STAGES:
+	stage_images[s] = cv2.resize(cv2.imread("images/stage_{0}_notrim.png".format(s)), (192, 108), cv2.INTER_CUBIC)
+stage_unknown_image = cv2.resize(cv2.imread("images/stage_unknown.png"), (192, 108), cv2.INTER_CUBIC)
+
+number_images = {}
+for i in range(10):
+	number_images["{}".format(i)] = cv2.imread("images/number_{0}.png".format(i), cv2.IMREAD_UNCHANGED)
+
+ika_images = {}
+for i in ["alpha", "bravo"]:
+	ika_images[i] = cv2.imread("images/ika_{0}.png".format(i), cv2.IMREAD_UNCHANGED)
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--video-file', dest='video_file_name', help='specify input video file')
@@ -167,14 +183,66 @@ if not "games" in progress or not isinstance(progress["games"], list):
 	progress["games"] = []
 games = progress["games"]
 
+# 画像を貼り付ける
+# 貼り付ける画像が RGBA 画像である場合は、アルファブレンディングを行う。
+# 制限事項: はみ出すような貼り付けを行おうとするとコケる。
+# XXX: 恐らく 0 と 255 以外のアルファ値は正しく動作しない。
+def paste_image(oimg, iimg, y, x):
+	h = iimg.shape[0]
+	w = iimg.shape[1]
+	if iimg.shape[2] == 3:
+		oimg[y:y+h, x:x+w] = iimg
+	else:
+		oimg[y:y+h, x:x+w] = oimg[y:y+h, x:x+w] * (1 - iimg[:, :, 3:] / 255) + iimg[:, :, :3] * (iimg[:, :, 3:] / 255)
+
+# 画像をグレースケール化する
+# RGB 画像を与えた場合、それをグレースケール化した RGB 画像を返す。3つのチャンネルは同じ値になる。
+# RGBA 画像を与えた場合、RGB 部分をグレースケール化した RGB 画像に元のアルファを結合した画像を返す。
+def cvt_grayscale(img):
+	if img.shape[2] == 3:
+		return cv2.cvtColor(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)
+	else:
+		return np.block([cv2.cvtColor(cv2.cvtColor(img[:, :, :3], cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR), img[:, :, 3:]])
+
+def draw_progress():
+	outframe[120:1080, 0:240] = 0
+	numlist = 8
+	base = max(0, len(games) - numlist)
+	for i in range(numlist):
+		j = i + base
+		if j >= len(games):
+			break
+		top = 120+i*120
+		game = games[j]
+		nogame = "result" in game and game["result"] == "nogame"
+		if "stage" in game:
+			tmp = stage_images[game["stage"]]
+			if nogame:
+				tmp = cvt_grayscale(tmp)
+		else:
+			tmp = stage_unknown_image
+		paste_image(outframe, tmp, top, 8)
+		if "rule" in game:
+			tmp = rule_images[game["rule"]]
+			if nogame:
+				tmp = cvt_grayscale(tmp)
+			paste_image(outframe, tmp, top+8, 152)
+		if "result" in game and game["result"] != "nogame":
+			paste_image(outframe, ika_images[game["result"]], top+60, 160)
+		s = "{}".format(j+1)
+		for k in range(len(s)):
+			paste_image(outframe, number_images[s[k]], top+8, 16+32*k)
+
 def write_progress():
 	if not args.progress_file_name is None:
 		with open(args.progress_file_name, "w") as file:
 			yaml.dump(progress, file)
+	draw_progress()
 	#print(yaml.dump(progress))
 
 outframe = np.zeros((1080, 1920, 3), np.uint8) # RGB24, 1920x1080, 真っ黒
 img = {}
+draw_progress()
 
 while True:
 	for i in range(frame_interval):
