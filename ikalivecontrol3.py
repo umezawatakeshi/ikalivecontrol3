@@ -133,8 +133,8 @@ for r in RULES:
 
 stage_images = {}
 for s in STAGES:
-	stage_images[s] = cv2.resize(cv2.imread("images/stage_{0}_notrim.png".format(s)), (192, 108), cv2.INTER_CUBIC)
-stage_unknown_image = cv2.resize(cv2.imread("images/stage_unknown.png"), (192, 108), cv2.INTER_CUBIC)
+	stage_images[s] = cv2.imread("images/stage_{0}.png".format(s), cv2.IMREAD_UNCHANGED)
+stage_unknown_image = cv2.imread("images/stage_unknown.png", cv2.IMREAD_UNCHANGED)
 
 number_images = {}
 for i in range(10):
@@ -202,14 +202,21 @@ bravo_short_image = cv2.imread(teams["bravo_short_image"], cv2.IMREAD_UNCHANGED)
 # 画像を貼り付ける
 # 貼り付ける画像が RGBA 画像である場合は、アルファブレンディングを行う。
 # 制限事項: はみ出すような貼り付けを行おうとするとコケる。
-# XXX: 恐らく 0 と 255 以外のアルファ値は正しく動作しない。
 def paste_image(oimg, iimg, y, x):
 	h = iimg.shape[0]
 	w = iimg.shape[1]
 	if iimg.shape[2] == 3:
 		oimg[y:y+h, x:x+w] = iimg
-	else:
+	elif oimg.shape[2] == 3:
 		oimg[y:y+h, x:x+w] = oimg[y:y+h, x:x+w] * (1 - iimg[:, :, 3:] / 255) + iimg[:, :, :3] * (iimg[:, :, 3:] / 255)
+	else:
+		ialpha = iimg[:, :, 3:].astype(float)
+		itransparency_scaled = 1 - ialpha / 255
+		oalpha = oimg[y:y+h, x:x+w, 3:].astype(float)
+		new_oalpha = iimg[:, :, 3:] + oalpha * itransparency_scaled
+		new_orgb = (iimg[:, :, :3] * ialpha + oimg[y:y+h, x:x+w, :3] * itransparency_scaled * oalpha)
+		new_orgb = np.divide(new_orgb, oalpha, out=np.zeros_like(new_orgb), where=oalpha!=0)
+		oimg[y:y+h, x:x+w] = np.block([new_orgb, new_oalpha])
 
 # 画像をグレースケール化する
 # RGB 画像を与えた場合、それをグレースケール化した RGB 画像を返す。3つのチャンネルは同じ値になる。
@@ -242,7 +249,7 @@ def draw_progress():
 	paste_image(outframe, alpha_short_image, 1080+24, 0)
 	paste_image(outframe, bravo_short_image, 1080+24, 1920-240)
 
-	outframe[120:1080, 0:240] = 0
+	outframe[120:1080, 0:240] = 128
 	numlist = 8
 	base = max(0, len(games) - numlist)
 	for i in range(numlist):
@@ -263,7 +270,7 @@ def draw_progress():
 			tmp = rule_images[game["rule"]]
 			if nogame:
 				tmp = cvt_grayscale(tmp)
-			paste_image(outframe, tmp, top+8, 152)
+			paste_image(outframe, tmp, top+8, 160)
 		if "result" in game and game["result"] != "nogame":
 			paste_image(outframe, ika_images[game["result"]], top+60, 160)
 		s = "{}".format(j+1)
