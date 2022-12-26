@@ -30,10 +30,19 @@ PHASE_OPENING = 2    # 試合のオープニング（ルールとステージが
                      #     正確には試合が開始して1秒経過したことを検出したら。
                      #     テンプレートマッチングとしては残り時間の分の部分が 4 または 2 になっていることを検出する
 PHASE_GAME = 3       # 試合の開始を検出した後の状態
-                     #   - 勝利/敗北/無効試合の検出処理が走る
-                     #   - 「メンバーの合流を待っています」を検出したら PHASE_WAIT_JOIN へ
-                     #       - 試合結果を検出する前に「メンバーの合流を待っています」を検出したら無効試合扱い
+                     #   - Finish! を検出したら PHASE_FINISH へ
+PHASE_FINISHED = 4   # Finish! を検出した後の状態
+                     #   - 勝利/敗北 を検出したら PHASE_RESULT へ
+PHASE_RESULT = 5     # 勝利/敗北 を検出した後の状態
+
+                     # どの phase でも、「メンバーの合流を待っています」を検出したら PHASE_WAIT_JOIN へ
+                     #   - 試合結果を検出する前に「メンバーの合流を待っています」を検出したら無効試合扱い
+
+SCENE_LOBBY = 0
+SCENE_BATTLE = 1
+
 current_phase = PHASE_WAIT_JOIN
+current_scene = SCENE_LOBBY
 
 # 画像のテンプレートマッチングを行うクラス
 # 640x360 にリサイズして指定した閾値で白黒二値化した状態で、指定した範囲についてマッチングを行う
@@ -126,6 +135,11 @@ for s in STAGES:
 	# 同じく水面がきらめいているマヒマヒはセーフだったのだが。
 	for t in [Matcher.WHITE, Matcher.BLACK]:
 		stage_matchers[s].append(Matcher("templates/opening_stage_{0}.png".format(s), 327, 505, 347, 627, t))
+
+blank_matcher = Matcher("templates/blank.png", 90, 160, 270, 480, Matcher.BLACK)
+finish_matchers = []
+for i in range(1):
+	finish_matchers.append(Matcher("templates/finish_{0}.png".format(i), 215, 339, 249, 410, Matcher.DARK))
 
 rule_images = {}
 for r in RULES:
@@ -338,10 +352,16 @@ while True:
 					break
 
 	elif current_phase == PHASE_GAME:
+		if Matcher.list_match(finish_matchers, img):
+			print("detected finish")
+			current_phase = PHASE_FINISHED
+
+	elif current_phase == PHASE_FINISHED:
 		if not "result" in current_game:
 			for i in list(result_matchers):
 				if result_matchers[i].match(img):
 					print("detected result {}".format(i))
+					current_phase = PHASE_RESULT
 					current_game["result"] = i
 					write_progress()
 					break
@@ -349,11 +369,22 @@ while True:
 	else:
 		pass # XXX
 
+	if current_phase == PHASE_WAIT_READY:
+		if current_scene != SCENE_BATTLE and blank_matcher.match(img):
+			print("detected blank to battle")
+			current_scene = SCENE_BATTLE
+	elif current_phase == PHASE_GAME or current_phase == PHASE_RESULT:
+		if current_scene != SCENE_LOBBY and blank_matcher.match(img):
+			print("detected blank to lobby")
+			current_scene = SCENE_LOBBY
+
 	# 念のため、どの状態からも PHASE_WAIT_JOIN に戻れるようにしておく
 	if current_phase != PHASE_WAIT_JOIN:
 		if lobby_wait_join_matcher.match(img):
 			print("detected wait_join")
 			current_phase = PHASE_WAIT_JOIN
+			if current_scene != SCENE_LOBBY:
+				current_scene = SCENE_LOBBY
 			# ロビーに戻ってきたのに結果が検出されていない場合は無効試合扱いにしておく
 			if not "result" in current_game:
 				current_game["result"] = "nogame"
@@ -405,6 +436,11 @@ while True:
 		for i in range(len(started_matchers)):
 			m, d = started_matchers[i].match(img, return_diff=True)
 			cv2putText(captured, "{:6.2f} started_{}".format(d, i), match_color(m), (320, 240+i*15))
+		for i in range(len(finish_matchers)):
+			m, d = finish_matchers[i].match(img, return_diff=True)
+			cv2putText(captured, "{:6.2f} finish_{}".format(d, i), match_color(m), (320, 270+i*15))
+		m, d = blank_matcher.match(img, return_diff=True)
+		cv2putText(captured, "{:6.2f} blank".format(d), match_color(m), (320, 300))
 		outframe[180:540, 320:960]  = captured
 
 	# ウィンドウに描画
