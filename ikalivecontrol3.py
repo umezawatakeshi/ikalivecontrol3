@@ -144,6 +144,9 @@ ika_images = {}
 for i in ["alpha", "bravo"]:
 	ika_images[i] = cv2.imread("images/ika_{0}.png".format(i), cv2.IMREAD_UNCHANGED)
 
+banner_lobby_image = cv2.imread("images/banner_lobby.png", cv2.IMREAD_UNCHANGED)
+banner_battle_image = cv2.imread("images/banner_battle.png", cv2.IMREAD_UNCHANGED)
+
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--video-file', dest='video_file_name', help='specify input video file')
 argparser.add_argument('--video-capture', dest='video_capture_id', type=int, help='specify input video capture device id')
@@ -179,9 +182,22 @@ if not "alpha" in teams or not isinstance(teams["alpha"], str):
 	teams["alpha"] = ""
 if not "bravo" in teams or not isinstance(teams["bravo"], str):
 	teams["bravo"] = ""
+if not "alpha_short_image" in teams or not isinstance(teams["alpha_short_image"], str):
+	teams["alpha_short_image"] = "images/team_alpha_short.png"
+if not "bravo_short_image" in teams or not isinstance(teams["bravo_short_image"], str):
+	teams["bravo_short_image"] = "images/team_bravo_short.png"
+if not "alpha_long_image" in teams or not isinstance(teams["alpha_long_image"], str):
+	teams["alpha_long_image"] = "images/team_alpha_long.png"
+if not "bravo_long_image" in teams or not isinstance(teams["bravo_long_image"], str):
+	teams["bravo_long_image"] = "images/team_bravo_long.png"
 if not "games" in progress or not isinstance(progress["games"], list):
 	progress["games"] = []
 games = progress["games"]
+
+alpha_long_image = cv2.imread(teams["alpha_long_image"], cv2.IMREAD_UNCHANGED)
+bravo_long_image = cv2.imread(teams["bravo_long_image"], cv2.IMREAD_UNCHANGED)
+alpha_short_image = cv2.imread(teams["alpha_short_image"], cv2.IMREAD_UNCHANGED)
+bravo_short_image = cv2.imread(teams["bravo_short_image"], cv2.IMREAD_UNCHANGED)
 
 # 画像を貼り付ける
 # 貼り付ける画像が RGBA 画像である場合は、アルファブレンディングを行う。
@@ -205,6 +221,27 @@ def cvt_grayscale(img):
 		return np.block([cv2.cvtColor(cv2.cvtColor(img[:, :, :3], cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR), img[:, :, 3:]])
 
 def draw_progress():
+	outframe[0:120] = 128
+	outframe[1080:1200] = 128
+	paste_image(outframe, banner_lobby_image, 0, 0)
+	paste_image(outframe, banner_battle_image, 1080, 0)
+	wins = {"alpha": 0, "bravo": 0}
+	for game in games:
+		if "result" in game and game["result"] != "nogame":
+			wins[game["result"]] += 1
+	s = "{}".format(wins["alpha"])
+	for k in range(len(s)):
+		paste_image(outframe, number_images[s[k]], 72-48//2, 720+48-len(s)*16+32*k)
+		paste_image(outframe, number_images[s[k]], 1080 + 72-48//2, 240+48-len(s)*16+32*k)
+	s = "{}".format(wins["bravo"])
+	for k in range(len(s)):
+		paste_image(outframe, number_images[s[k]], 72-48//2, 1920-(720+48)-len(s)*16+32*k)
+		paste_image(outframe, number_images[s[k]], 1080 + 72-48//2, 1920-(240+48)-len(s)*16+32*k)
+	paste_image(outframe, alpha_long_image, 24, 0)
+	paste_image(outframe, bravo_long_image, 24, 1920-720)
+	paste_image(outframe, alpha_short_image, 1080+24, 0)
+	paste_image(outframe, bravo_short_image, 1080+24, 1920-240)
+
 	outframe[120:1080, 0:240] = 0
 	numlist = 8
 	base = max(0, len(games) - numlist)
@@ -240,7 +277,7 @@ def write_progress():
 	draw_progress()
 	#print(yaml.dump(progress))
 
-outframe = np.zeros((1080, 1920, 3), np.uint8) # RGB24, 1920x1080, 真っ黒
+outframe = np.zeros((1200, 1920, 3), np.uint8) # RGB24, 1920x1200, 真っ黒
 img = {}
 draw_progress()
 
