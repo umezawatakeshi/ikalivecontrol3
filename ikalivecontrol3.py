@@ -9,6 +9,11 @@ import numpy as np
 import argparse
 from time import sleep
 import yaml
+import pyautogui
+
+OBS_SCENE_LOBBY_HOTKEY = ["scrolllock"]
+OBS_SCENE_BATTLE_HOTKEY = ["pause"]
+OBS_SCENE_CHANGE_DELAY = 1
 
 RULES = ["nawabari", "area", "yagura", "hoko", "asari"]
 # ステージリストは さんぽ や プラベ のステージ選択画面と同じ並びにしてある
@@ -165,6 +170,7 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument('--video-file', dest='video_file_name', help='specify input video file')
 argparser.add_argument('--video-capture', dest='video_capture_id', type=int, help='specify input video capture device id')
 argparser.add_argument('--progress-file', dest='progress_file_name', help='specify progress file')
+argparser.add_argument('--control-obs', dest='control_obs', action='store_true', help='control OBS')
 argparser.add_argument('--test-matchers', dest='test_matchers', action='store_true', help='test matchers')
 argparser.add_argument('--decimate-frames', dest='decimate_frames', action='store_true', help='decimate frames to decrease cpu load')
 argparser.add_argument('--matcher-threshold', dest='matcher_threshold', type=float, default=2.0, help='template matching threshold')
@@ -373,10 +379,16 @@ while True:
 		if current_scene != SCENE_BATTLE and blank_matcher.match(img):
 			print("detected blank to battle")
 			current_scene = SCENE_BATTLE
+			if args.control_obs:
+				sleep(OBS_SCENE_CHANGE_DELAY)
+				pyautogui.hotkey(*OBS_SCENE_BATTLE_HOTKEY, interval=0.01)
 	elif current_phase == PHASE_GAME or current_phase == PHASE_RESULT:
 		if current_scene != SCENE_LOBBY and blank_matcher.match(img):
 			print("detected blank to lobby")
 			current_scene = SCENE_LOBBY
+			if args.control_obs:
+				sleep(OBS_SCENE_CHANGE_DELAY)
+				pyautogui.hotkey(*OBS_SCENE_LOBBY_HOTKEY, interval=0.01)
 
 	# 念のため、どの状態からも PHASE_WAIT_JOIN に戻れるようにしておく
 	if current_phase != PHASE_WAIT_JOIN:
@@ -385,6 +397,8 @@ while True:
 			current_phase = PHASE_WAIT_JOIN
 			if current_scene != SCENE_LOBBY:
 				current_scene = SCENE_LOBBY
+				if args.control_obs:
+					pyautogui.hotkey(*OBS_SCENE_LOBBY_HOTKEY, interval=0.01)
 			# ロビーに戻ってきたのに結果が検出されていない場合は無効試合扱いにしておく
 			if not "result" in current_game:
 				current_game["result"] = "nogame"
