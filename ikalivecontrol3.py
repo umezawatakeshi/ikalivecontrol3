@@ -10,6 +10,7 @@ import argparse
 from time import sleep
 import yaml
 import pyautogui
+import os
 
 OBS_SCENE_LOBBY_HOTKEY = ["scrolllock"]
 OBS_SCENE_BATTLE_HOTKEY = ["pause"]
@@ -171,6 +172,7 @@ argparser.add_argument('--video-file', dest='video_file_name', help='specify inp
 argparser.add_argument('--video-capture', dest='video_capture_id', type=int, help='specify input video capture device id')
 argparser.add_argument('--progress-file', dest='progress_file_name', help='specify progress file')
 argparser.add_argument('--control-obs', dest='control_obs', action='store_true', help='control OBS')
+argparser.add_argument('--output-dir', dest='output_dir_name', help='specify image output directory')
 argparser.add_argument('--test-matchers', dest='test_matchers', action='store_true', help='test matchers')
 argparser.add_argument('--decimate-frames', dest='decimate_frames', action='store_true', help='decimate frames to decrease cpu load')
 argparser.add_argument('--matcher-threshold', dest='matcher_threshold', type=float, default=2.0, help='template matching threshold')
@@ -248,28 +250,28 @@ def cvt_grayscale(img):
 		return np.block([cv2.cvtColor(cv2.cvtColor(img[:, :, :3], cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR), img[:, :, 3:]])
 
 def draw_progress():
-	outframe[0:120] = 128
-	outframe[1080:1200] = 128
-	paste_image(outframe, banner_lobby_image, 0, 0)
-	paste_image(outframe, banner_battle_image, 1080, 0)
+	lobby_frame[:] = 0
+	battle_banner[:] = 0
+	paste_image(lobby_frame, banner_lobby_image, 0, 0)
+	paste_image(battle_banner, banner_battle_image, 0, 0)
+
 	wins = {"alpha": 0, "bravo": 0}
 	for game in games:
 		if "result" in game and game["result"] != "nogame":
 			wins[game["result"]] += 1
 	s = "{}".format(wins["alpha"])
 	for k in range(len(s)):
-		paste_image(outframe, number_images[s[k]], 72-48//2, 720+48-len(s)*16+32*k)
-		paste_image(outframe, number_images[s[k]], 1080 + 72-48//2, 240+48-len(s)*16+32*k)
+		paste_image(lobby_frame, number_images[s[k]], 72-48//2, 720+48-len(s)*16+32*k)
+		paste_image(battle_banner, number_images[s[k]], 72-48//2, 240+48-len(s)*16+32*k)
 	s = "{}".format(wins["bravo"])
 	for k in range(len(s)):
-		paste_image(outframe, number_images[s[k]], 72-48//2, 1920-(720+48)-len(s)*16+32*k)
-		paste_image(outframe, number_images[s[k]], 1080 + 72-48//2, 1920-(240+48)-len(s)*16+32*k)
-	paste_image(outframe, alpha_long_image, 24, 0)
-	paste_image(outframe, bravo_long_image, 24, 1920-720)
-	paste_image(outframe, alpha_short_image, 1080+24, 0)
-	paste_image(outframe, bravo_short_image, 1080+24, 1920-240)
+		paste_image(lobby_frame, number_images[s[k]], 72-48//2, 1920-(720+48)-len(s)*16+32*k)
+		paste_image(battle_banner, number_images[s[k]], 72-48//2, 1920-(240+48)-len(s)*16+32*k)
+	paste_image(lobby_frame, alpha_long_image, 24, 0)
+	paste_image(lobby_frame, bravo_long_image, 24, 1920-720)
+	paste_image(battle_banner, alpha_short_image, 24, 0)
+	paste_image(battle_banner, bravo_short_image, 24, 1920-240)
 
-	outframe[120:1080, 0:240] = 128
 	numlist = 8
 	base = max(0, len(games) - numlist)
 	for i in range(numlist):
@@ -285,17 +287,25 @@ def draw_progress():
 				tmp = cvt_grayscale(tmp)
 		else:
 			tmp = stage_unknown_image
-		paste_image(outframe, tmp, top, 8)
+		paste_image(lobby_frame, tmp, top, 8)
 		if "rule" in game:
 			tmp = rule_images[game["rule"]]
 			if nogame:
 				tmp = cvt_grayscale(tmp)
-			paste_image(outframe, tmp, top+8, 160)
+			paste_image(lobby_frame, tmp, top+8, 160)
 		if "result" in game and game["result"] != "nogame":
-			paste_image(outframe, ika_images[game["result"]], top+60, 160)
+			paste_image(lobby_frame, ika_images[game["result"]], top+60, 160)
 		s = "{}".format(j+1)
 		for k in range(len(s)):
-			paste_image(outframe, number_images[s[k]], top+8, 16+32*k)
+			paste_image(lobby_frame, number_images[s[k]], top+8, 16+32*k)
+
+	if not args.output_dir_name is None:
+		cv2.imwrite(os.path.join(args.output_dir_name, "lobby_frame.png"), lobby_frame)
+		cv2.imwrite(os.path.join(args.output_dir_name, "battle_banner.png"), battle_banner)
+
+	outframe[:] = 128
+	paste_image(outframe, lobby_frame, 0, 0)
+	paste_image(outframe, battle_banner, 1080, 0)
 
 def write_progress():
 	if not args.progress_file_name is None:
@@ -304,6 +314,8 @@ def write_progress():
 	draw_progress()
 	#print(yaml.dump(progress))
 
+lobby_frame = np.zeros((1080, 1920, 4), np.uint8) # RGBA, 1920x1080, 透明
+battle_banner = np.zeros((120, 1920, 4), np.uint8) # RGBA, 1920x120, 透明
 outframe = np.zeros((1200, 1920, 3), np.uint8) # RGB24, 1920x1200, 真っ黒
 img = {}
 draw_progress()
