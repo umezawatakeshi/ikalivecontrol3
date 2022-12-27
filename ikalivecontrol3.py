@@ -234,8 +234,8 @@ def paste_image(oimg, iimg, y, x):
 		itransparency_scaled = 1 - ialpha / 255
 		oalpha = oimg[y:y+h, x:x+w, 3:].astype(float)
 		new_oalpha = iimg[:, :, 3:] + oalpha * itransparency_scaled
-		new_orgb = (iimg[:, :, :3] * ialpha + oimg[y:y+h, x:x+w, :3] * itransparency_scaled * oalpha)
-		new_orgb = np.divide(new_orgb, oalpha, out=np.zeros_like(new_orgb), where=oalpha!=0)
+		new_orgb = (iimg[:, :, :3] * ialpha + oimg[y:y+h, x:x+w, :3] * itransparency_scaled * new_oalpha)
+		new_orgb = np.divide(new_orgb, new_oalpha, out=np.zeros_like(new_orgb), where=new_oalpha!=0)
 		oimg[y:y+h, x:x+w] = np.block([new_orgb, new_oalpha])
 
 # 画像をグレースケール化する
