@@ -120,8 +120,10 @@ result_matchers["alpha"] = result_win_matcher
 result_matchers["bravo"] = result_lose_matcher
 result_matchers["nogame"] = result_nogame_matcher
 started_matchers = []
-started_matchers.append(Matcher("templates/started_0.png", 18, 304, 31, 318, Matcher.LIGHT))
-started_matchers.append(Matcher("templates/started_1.png", 18, 304, 31, 318, Matcher.LIGHT))
+started_matchers.append(Matcher("templates/started_0a.png", 18, 304, 31, 318, Matcher.LIGHT))
+started_matchers.append(Matcher("templates/started_0b.png", 18, 304, 31, 318, Matcher.LIGHT))
+started_matchers.append(Matcher("templates/started_1a.png", 18, 304, 31, 318, Matcher.LIGHT))
+started_matchers.append(Matcher("templates/started_1b.png", 18, 304, 31, 318, Matcher.LIGHT))
 
 opening_matchers = []
 
@@ -144,8 +146,8 @@ for s in STAGES:
 
 blank_matcher = Matcher("templates/blank.png", 90, 160, 270, 480, Matcher.BLACK)
 finish_matchers = []
-for i in range(1):
-	finish_matchers.append(Matcher("templates/finish_{0}.png".format(i), 215, 339, 249, 410, Matcher.DARK))
+finish_matchers.append(Matcher("templates/finish_0a.png", 215, 339, 249, 410, Matcher.DARK))
+finish_matchers.append(Matcher("templates/finish_0b.png", 215, 339, 249, 410, Matcher.DARK))
 
 rule_images = {}
 for r in RULES:
@@ -473,12 +475,15 @@ while True:
 		cv2putText(captured, "{:6.2f} result_lose".format(d), match_color(m), (320, 195))
 		m, d = result_nogame_matcher.match(img, return_diff=True)
 		cv2putText(captured, "{:6.2f} result_nogame".format(d), match_color(m), (320, 210))
-		for i in range(len(started_matchers)):
-			m, d = started_matchers[i].match(img, return_diff=True)
-			cv2putText(captured, "{:6.2f} started_{}".format(d, i), match_color(m), (320, 240+i*15))
-		for i in range(len(finish_matchers)):
-			m, d = finish_matchers[i].match(img, return_diff=True)
-			cv2putText(captured, "{:6.2f} finish_{}".format(d, i), match_color(m), (320, 270+i*15))
+		ma, da = started_matchers[0].match(img, return_diff=True)
+		mb, db = started_matchers[1].match(img, return_diff=True)
+		cv2putText(captured, "{:6.2f} {:6.2f} started_{}".format(da, db, 0), match_color(ma or mb), (320, 240))
+		ma, da = started_matchers[2].match(img, return_diff=True)
+		mb, db = started_matchers[3].match(img, return_diff=True)
+		cv2putText(captured, "{:6.2f} {:6.2f} started_{}".format(da, db, 1), match_color(ma or mb), (320, 255))
+		ma, da = finish_matchers[0].match(img, return_diff=True)
+		mb, db = finish_matchers[1].match(img, return_diff=True)
+		cv2putText(captured, "{:6.2f} {:6.2f} finish_0".format(da, db, 0), match_color(ma or mb), (320, 270))
 		m, d = blank_matcher.match(img, return_diff=True)
 		cv2putText(captured, "{:6.2f} blank".format(d), match_color(m), (320, 300))
 		outframe[180:540, 320:960]  = captured
