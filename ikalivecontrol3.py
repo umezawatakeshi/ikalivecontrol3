@@ -316,8 +316,10 @@ def draw_progress():
 			paste_image(lobby_frame, number_images[s[k]], top+8, 16+32*k)
 
 	if not args.output_dir_name is None:
-		cv2.imwrite(os.path.join(args.output_dir_name, "lobby_frame.png"), lobby_frame)
-		cv2.imwrite(os.path.join(args.output_dir_name, "battle_banner.png"), battle_banner)
+		cv2.imwrite(os.path.join(args.output_dir_name, "lobby_frame.tmp.png"), lobby_frame)
+		cv2.imwrite(os.path.join(args.output_dir_name, "battle_banner.tmp.png"), battle_banner)
+		os.replace(os.path.join(args.output_dir_name, "lobby_frame.tmp.png"), os.path.join(args.output_dir_name, "lobby_frame.png"))
+		os.replace(os.path.join(args.output_dir_name, "battle_banner.tmp.png"), os.path.join(args.output_dir_name, "battle_banner.png"))
 
 	outframe[:] = 128
 	paste_image(outframe, lobby_frame, 0, 0)
