@@ -497,6 +497,9 @@ while True:
 	key = cv2.waitKey(1)
 	if key & 0xff == ord('q') or key & 0xff == 0x1b:
 		break
+	# r を押したら画像を再出力（OBS がたまに置き換えられたファイルの読み込みに失敗するので）
+	if key & 0xff == ord('r'):
+		draw_progress()
 
 cap.release()
 cv2.destroyAllWindows()
