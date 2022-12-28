@@ -170,6 +170,8 @@ banner_battle_image = cv2.imread("images/banner_battle.png", cv2.IMREAD_UNCHANGE
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--video-file', dest='video_file_name', help='specify input video file')
 argparser.add_argument('--video-capture', dest='video_capture_id', type=int, help='specify input video capture device id')
+argparser.add_argument('--capture-size', dest='capture_size', type=str, help='video capture size in width,height')
+argparser.add_argument('--capture-fps', dest='capture_fps', type=float, help='video capture fps')
 argparser.add_argument('--progress-file', dest='progress_file_name', help='specify progress file')
 argparser.add_argument('--control-obs', dest='control_obs', action='store_true', help='control OBS')
 argparser.add_argument('--output-dir', dest='output_dir_name', help='specify image output directory')
@@ -185,6 +187,18 @@ elif not args.video_capture_id is None:
 	cap = cv2.VideoCapture(args.video_capture_id)
 else:
 	cap = cv2.VideoCapture(0)
+
+if not args.capture_size is None:
+	size = args.capture_size.split(",")
+	if len(size) != 2:
+		raise ValueError("'{}' is not size".format(args.capture_size))
+	cap.set(cv2.CAP_PROP_FRAME_WIDTH, float(size[0]))
+	cap.set(cv2.CAP_PROP_FRAME_HEIGHT, float(size[1]))
+if not args.capture_fps is None:
+	cap.set(cv2.CAP_PROP_FPS, args.capture_fps)
+
+print("capture size = {}x{}".format(int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
+
 fps = cap.get(cv2.CAP_PROP_FPS)
 frame_interval = 1
 print("frame rate = {:5.2f}fps".format(fps))
