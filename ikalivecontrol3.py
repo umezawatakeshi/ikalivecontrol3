@@ -318,8 +318,21 @@ def draw_progress():
 	if not args.output_dir_name is None:
 		cv2.imwrite(os.path.join(args.output_dir_name, "lobby_frame.tmp.png"), lobby_frame)
 		cv2.imwrite(os.path.join(args.output_dir_name, "battle_banner.tmp.png"), battle_banner)
-		os.replace(os.path.join(args.output_dir_name, "lobby_frame.tmp.png"), os.path.join(args.output_dir_name, "lobby_frame.png"))
-		os.replace(os.path.join(args.output_dir_name, "battle_banner.tmp.png"), os.path.join(args.output_dir_name, "battle_banner.png"))
+
+		# PermissionError: [WinError 5] アクセスが拒否されました。 が出ることがある（たぶん OBS が読み込みのみ共有で開いてる）のでリトライする。
+		def replace_with_retry(src_base, dst_base):
+			num_try = 10
+			for i in range(num_try):
+				try:
+					os.replace(os.path.join(args.output_dir_name, src_base), os.path.join(args.output_dir_name, dst_base))
+					break
+				except PermissionError as e:
+					#print(e)
+					if i == num_try - 1:
+						throw
+					sleep(0.02)
+		replace_with_retry("lobby_frame.tmp.png", "lobby_frame.png")
+		replace_with_retry("battle_banner.tmp.png", "battle_banner.png")
 
 	outframe[:] = 128
 	paste_image(outframe, lobby_frame, 0, 0)
