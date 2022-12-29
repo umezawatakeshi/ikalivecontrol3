@@ -390,14 +390,16 @@ while True:
 				if Matcher.list_match(stage_matchers[s], img):
 					print("detected stage {}".format(s))
 					current_game["stage"] = s
-					write_progress()
+					if "rule" in current_game:
+						write_progress()
 					break
 		if not "rule" in current_game:
 			for r in RULES:
 				if Matcher.list_match(rule_matchers[r], img):
 					print("detected rule {}".format(r))
 					current_game["rule"] = r
-					write_progress()
+					if "stage" in current_game:
+						write_progress()
 					break
 
 	elif current_phase == PHASE_GAME:
