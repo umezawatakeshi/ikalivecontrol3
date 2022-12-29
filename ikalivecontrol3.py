@@ -231,6 +231,11 @@ if not "bravo_long_image" in teams or not isinstance(teams["bravo_long_image"], 
 if not "games" in progress or not isinstance(progress["games"], list):
 	progress["games"] = []
 games = progress["games"]
+if not "options" in progress or not isinstance(progress["options"], dict):
+	progress["options"] = {}
+options = progress["options"]
+if not "keep_nogame" in options or not isinstance(options["keep_nogame"], bool):
+	options["keep_nogame"] = False
 
 alpha_long_image = cv2.imread(teams["alpha_long_image"], cv2.IMREAD_UNCHANGED)
 bravo_long_image = cv2.imread(teams["bravo_long_image"], cv2.IMREAD_UNCHANGED)
@@ -370,6 +375,10 @@ while True:
 		if Matcher.list_match(lobby_wait_ready_matchers, img):
 			print("detected wait_ready")
 			current_phase = PHASE_WAIT_READY
+			if len(games) > 0:
+				last_game = games[len(games)-1]
+				if "result" in last_game and last_game["result"] == "nogame" and not options["keep_nogame"]:
+					del games[-1]
 			current_game = {}
 			games.append(current_game)
 			write_progress()
