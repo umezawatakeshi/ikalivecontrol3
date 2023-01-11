@@ -236,11 +236,23 @@ if not "options" in progress or not isinstance(progress["options"], dict):
 options = progress["options"]
 if not "keep_nogame" in options or not isinstance(options["keep_nogame"], bool):
 	options["keep_nogame"] = False
+if not "advantages" in progress or not isinstance(progress["advantages"], dict):
+	progress["advantages"] = {}
+advantages = progress["advantages"]
+if not "alpha" in advantages or not isinstance(advantages["alpha"], int):
+	advantages["alpha"] = 0
+if not "bravo" in advantages or not isinstance(advantages["bravo"], int):
+	advantages["bravo"] = 0
 
 alpha_long_image = cv2.imread(teams["alpha_long_image"], cv2.IMREAD_UNCHANGED)
 bravo_long_image = cv2.imread(teams["bravo_long_image"], cv2.IMREAD_UNCHANGED)
 alpha_short_image = cv2.imread(teams["alpha_short_image"], cv2.IMREAD_UNCHANGED)
 bravo_short_image = cv2.imread(teams["bravo_short_image"], cv2.IMREAD_UNCHANGED)
+
+if advantages["alpha"] > 0:
+	alpha_advantage_image = cv2.imread("images/advantage_{}.png".format(advantages["alpha"]), cv2.IMREAD_UNCHANGED)
+if advantages["bravo"] > 0:
+	bravo_advantage_image = cv2.imread("images/advantage_{}.png".format(advantages["bravo"]), cv2.IMREAD_UNCHANGED)
 
 # 画像を貼り付ける
 # 貼り付ける画像が RGBA 画像である場合は、アルファブレンディングを行う。
@@ -276,7 +288,7 @@ def draw_progress():
 	paste_image(lobby_frame, banner_lobby_image, 0, 0)
 	paste_image(battle_banner, banner_battle_image, 0, 0)
 
-	wins = {"alpha": 0, "bravo": 0}
+	wins = {"alpha": advantages["alpha"], "bravo": advantages["bravo"]}
 	for game in games:
 		if "result" in game and game["result"] != "nogame":
 			wins[game["result"]] += 1
@@ -284,10 +296,16 @@ def draw_progress():
 	for k in range(len(s)):
 		paste_image(lobby_frame, number_images[s[k]], 72-48//2, 720+48-len(s)*16+32*k)
 		paste_image(battle_banner, number_images[s[k]], 72-48//2, 240+48-len(s)*16+32*k)
+	if advantages["alpha"] > 0:
+		paste_image(lobby_frame, alpha_advantage_image, 72+48//2, 720+48-16)
+		paste_image(battle_banner, alpha_advantage_image, 72+48//2, 240+48-16)
 	s = "{}".format(wins["bravo"])
 	for k in range(len(s)):
 		paste_image(lobby_frame, number_images[s[k]], 72-48//2, 1920-(720+48)-len(s)*16+32*k)
 		paste_image(battle_banner, number_images[s[k]], 72-48//2, 1920-(240+48)-len(s)*16+32*k)
+	if advantages["bravo"] > 0:
+		paste_image(lobby_frame, bravo_advantage_image, 72+48//2, 1920-(720+48)-16)
+		paste_image(battle_banner, bravo_advantage_image, 72+48//2, 1920-(240+48)-16)
 	paste_image(lobby_frame, alpha_long_image, 24, 0)
 	paste_image(lobby_frame, bravo_long_image, 24, 1920-720)
 	paste_image(battle_banner, alpha_short_image, 24, 0)
