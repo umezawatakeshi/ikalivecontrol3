@@ -364,9 +364,9 @@ def draw_progress():
 def write_progress():
 	if not args.progress_file_name is None:
 		with open(args.progress_file_name, "w") as file:
-			yaml.dump(progress, file)
+			yaml.dump(progress, file, sort_keys=False)
 	draw_progress()
-	#print(yaml.dump(progress))
+	#print(yaml.dump(progress, sort_keys=False))
 
 lobby_frame = np.zeros((1080, 1920, 4), np.uint8) # RGBA, 1920x1080, 透明
 battle_banner = np.zeros((120, 1920, 4), np.uint8) # RGBA, 1920x120, 透明
