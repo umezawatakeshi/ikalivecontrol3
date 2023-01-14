@@ -11,6 +11,7 @@ from time import sleep
 import yaml
 import pyautogui
 import os
+from ctypes import windll, create_unicode_buffer, WINFUNCTYPE, c_bool, c_int, POINTER
 
 OBS_SCENE_LOBBY_HOTKEY = ["scrolllock"]
 OBS_SCENE_BATTLE_HOTKEY = ["pause"]
@@ -176,6 +177,7 @@ argparser.add_argument('--capture-size', dest='capture_size', type=str, help='vi
 argparser.add_argument('--capture-fps', dest='capture_fps', type=float, help='video capture fps')
 argparser.add_argument('--progress-file', dest='progress_file_name', help='specify progress file')
 argparser.add_argument('--control-obs', dest='control_obs', action='store_true', help='control OBS')
+argparser.add_argument('--control-obs-windows', dest='control_obs_windows', action='store_true', help='control OBS with Windows manner')
 argparser.add_argument('--output-dir', dest='output_dir_name', help='specify image output directory')
 argparser.add_argument('--test-matchers', dest='test_matchers', action='store_true', help='test matchers')
 argparser.add_argument('--decimate-frames', dest='decimate_frames', action='store_true', help='decimate frames to decrease cpu load')
@@ -253,6 +255,43 @@ if advantages["alpha"] > 0:
 	alpha_advantage_image = cv2.imread("images/advantage_{}.png".format(advantages["alpha"]), cv2.IMREAD_UNCHANGED)
 if advantages["bravo"] > 0:
 	bravo_advantage_image = cv2.imread("images/advantage_{}.png".format(advantages["bravo"]), cv2.IMREAD_UNCHANGED)
+
+
+
+EnumWindows = windll.user32.EnumWindows
+PostMessage = windll.user32.PostMessageW
+GetWindowText = windll.user32.GetWindowTextW
+GetClassName = windll.user32.GetClassNameW
+
+WM_KEYDOWN = 0x100
+WM_KEYUP = 0x101
+
+VK_PAUSE = 0x13
+VK_SCROLL = 0x91
+
+EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
+
+hwnd_obs = None
+
+if args.control_obs_windows:
+	def enum_windows_callback(hwnd, lparam):
+		global hwnd_obs
+		bufWindowText = create_unicode_buffer(256)
+		bufClassName = create_unicode_buffer(256)
+		GetWindowText(hwnd, bufWindowText, 256)
+		GetClassName(hwnd, bufClassName, 256)
+		if bufWindowText.value.find("OBS ") == 0 and bufClassName.value.find("QWindow") != -1:
+			hwnd_obs = hwnd
+			return False
+		return True
+	EnumWindows(EnumWindowsProc(enum_windows_callback), 0)
+	if hwnd_obs is None:
+		print("OBS window not found: falling back to pyautogui manner.")
+		args.control_obs_windows = False
+		args.control_obs = True
+	else:
+		print("OBS window found: using Windows manner.")
+
 
 # 画像を貼り付ける
 # 貼り付ける画像が RGBA 画像である場合は、アルファブレンディングを行う。
@@ -451,16 +490,24 @@ while True:
 		if current_scene != SCENE_BATTLE and blank_matcher.match(img):
 			print("detected blank to battle")
 			current_scene = SCENE_BATTLE
-			if args.control_obs:
+			if args.control_obs or args.control_obs_windows:
 				sleep(OBS_SCENE_CHANGE_DELAY)
-				pyautogui.hotkey(*OBS_SCENE_BATTLE_HOTKEY, interval=0.01)
+				if args.control_obs:
+					pyautogui.hotkey(*OBS_SCENE_BATTLE_HOTKEY, interval=0.01)
+				if args.control_obs_windows:
+					PostMessage(hwnd_obs, WM_KEYDOWN, VK_PAUSE, 1);
+					PostMessage(hwnd_obs, WM_KEYUP, VK_PAUSE, 0xc0000001);
 	elif current_phase == PHASE_GAME or current_phase == PHASE_RESULT:
 		if current_scene != SCENE_LOBBY and blank_matcher.match(img):
 			print("detected blank to lobby")
 			current_scene = SCENE_LOBBY
-			if args.control_obs:
+			if args.control_obs or args.control_obs_windows:
 				sleep(OBS_SCENE_CHANGE_DELAY)
-				pyautogui.hotkey(*OBS_SCENE_LOBBY_HOTKEY, interval=0.01)
+				if args.control_obs:
+					pyautogui.hotkey(*OBS_SCENE_LOBBY_HOTKEY, interval=0.01)
+				if args.control_obs_windows:
+					PostMessage(hwnd_obs, WM_KEYDOWN, VK_SCROLL, 1);
+					PostMessage(hwnd_obs, WM_KEYUP, VK_SCROLL, 0xc0000001);
 
 	# 念のため、どの状態からも PHASE_WAIT_JOIN に戻れるようにしておく
 	if current_phase != PHASE_WAIT_JOIN:
@@ -471,6 +518,9 @@ while True:
 				current_scene = SCENE_LOBBY
 				if args.control_obs:
 					pyautogui.hotkey(*OBS_SCENE_LOBBY_HOTKEY, interval=0.01)
+				if args.control_obs_windows:
+					PostMessage(hwnd_obs, WM_KEYDOWN, VK_SCROLL, 1);
+					PostMessage(hwnd_obs, WM_KEYUP, VK_SCROLL, 0xc0000001);
 			# ロビーに戻ってきたのに結果が検出されていない場合は無効試合扱いにしておく
 			if not "result" in current_game:
 				current_game["result"] = "nogame"
