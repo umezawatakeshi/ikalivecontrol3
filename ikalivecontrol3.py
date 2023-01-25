@@ -1,5 +1,5 @@
 # IkaLiveControl3
-# Copyright (c) 2022 UMEZAWA Takeshi
+# Copyright (c) 2022-2023 UMEZAWA Takeshi
 # Licensed under GNU GPL version 2 or later
 
 # キャプボあるいは動画ファイルを開いて観戦動画配信支援
